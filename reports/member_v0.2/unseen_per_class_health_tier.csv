@@ -1,0 +1,4 @@
+class,precision,recall,f1,support
+good,0.583,0.669,0.623,32679
+medium,0.448,0.449,0.449,34727
+poor,0.869,0.831,0.85,110229

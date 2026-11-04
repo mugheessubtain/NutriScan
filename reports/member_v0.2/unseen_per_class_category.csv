@@ -1,0 +1,12 @@
+class,precision,recall,f1,support
+alcoholic-beverages,0.173,0.091,0.119,484
+baby-foods-and-milks,0.031,0.688,0.06,16
+beverages,0.899,0.904,0.902,15826
+cereals-and-potatoes,0.777,0.737,0.757,14717
+composite-foods,0.677,0.724,0.699,11257
+fats-and-sauces,0.847,0.797,0.821,17687
+fish-meat-eggs,0.862,0.84,0.851,9616
+fruits-and-vegetables,0.573,0.59,0.581,5079
+milk-and-dairy-products,0.889,0.883,0.886,11480
+salty-snacks,0.366,0.853,0.512,2355
+sugary-snacks,0.923,0.867,0.894,34848

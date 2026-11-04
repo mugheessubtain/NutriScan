@@ -1,0 +1,16 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+
+# data and generated outputs (large or reproducible)
+data/raw/
+data/processed/
+artifacts/*.joblib
+_demo_out/
+
+# secrets
+.streamlit/secrets.toml
+.env

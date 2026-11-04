@@ -1,0 +1,125 @@
+# Expert-system rules. Each rule is evaluated in src/nutriscan/expert_system.py
+# `when.type` selects the evaluator. Add new types there, then declare rules here.
+version: "0.2.0"
+rules:
+  - id: R_SWEETENER_AND_COLOUR
+    description: Artificial sweetener together with a colour additive suggests a formulated, ultra-processed product.
+    when: {type: all_categories_present, categories: [sweetener_artificial, colour]}
+    effect: {nova4_evidence: 2}
+    severity: 2
+    message: Contains an artificial sweetener and a colour additive, a combination associated with ultra-processed formulations.
+    source: NOVA classification (Monteiro et al.)
+
+  - id: R_HYDROGENATED_FAT
+    description: Partially hydrogenated oil is a source of industrial trans fat.
+    when: {type: ingredient_present, ids: [hydrogenated_oil]}
+    effect: {nova4_evidence: 2}
+    severity: 3
+    message: Contains partially hydrogenated oil, associated with industrial trans fat (WHO recommends eliminating it).
+    source: WHO REPLACE guidance
+
+  - id: R_HIGH_ADDED_SUGAR
+    description: A sugar source listed among the first three ingredients.
+    when: {type: category_in_first_n, category: sugar_source, n: 3}
+    effect: {nova4_evidence: 0}
+    severity: 2
+    message: A sugar source appears among the first three ingredients, so added sugar is likely high.
+    source: WHO free sugars guideline
+
+  - id: R_MULTIPLE_NOVA4_MARKERS
+    description: Two or more typical NOVA 4 markers in one ingredient list.
+    when: {type: nova4_markers_at_least, count: 2}
+    effect: {nova4_evidence: 2}
+    severity: 1
+    message: Two or more ingredients typical of ultra-processed formulations were found.
+    source: NOVA classification (Monteiro et al.)
+
+  - id: R_TITANIUM_DIOXIDE
+    description: Titanium dioxide is not authorised in EU foods.
+    when: {type: ingredient_present, ids: [titanium_dioxide]}
+    effect: {nova4_evidence: 1}
+    severity: 3
+    message: Contains titanium dioxide (E171), which is no longer an authorised food additive in the EU.
+    source: EU Regulation 2022/63
+
+  # ---------------- v0.2.0 additions ----------------
+  - id: R_CHILD_ACTIVITY_COLOURS
+    description: One of the six colours that need the EU child activity/attention warning.
+    when: {type: ingredient_present, ids: [tartrazine, quinoline_yellow, sunset_yellow, carmoisine, ponceau_4r, allura_red]}
+    effect: {nova4_evidence: 1}
+    severity: 2
+    message: Contains a colour that, in the EU, must be labelled as possibly affecting activity and attention in children.
+    source: Regulation (EC) No 1333/2008, Annex V
+
+  - id: R_COSMETIC_ADDITIVES
+    description: Colour + flavouring + emulsifier together are the 'cosmetic additive' signature NOVA uses for group 4.
+    when: {type: all_categories_present, categories: [colour, flavouring, emulsifier]}
+    effect: {nova4_evidence: 2}
+    severity: 1
+    message: Combines a colour, a flavouring and an emulsifier, a pattern associated with ultra-processed formulations.
+    source: Monteiro et al., Public Health Nutrition 2019 (NOVA)
+
+  - id: R_MULTIPLE_SUGAR_SOURCES
+    description: Three or more different sugar sources (sugar split across names on the label).
+    when: {type: category_count_at_least, category: sugar_source, count: 3}
+    effect: {nova4_evidence: 1}
+    severity: 2
+    message: Lists three or more different sugar sources, so total added sugar may be higher than any single entry suggests.
+    source: WHO Guideline on sugars intake (2015)
+
+  - id: R_HIGH_SALT
+    description: Salt among the first three ingredients.
+    when: {type: category_in_first_n, category: salt, n: 3}
+    effect: {nova4_evidence: 0}
+    severity: 1
+    message: Salt is among the first three ingredients, so the product is likely high in sodium.
+    source: WHO Guideline on sodium intake (2012)
+
+  - id: R_PROCESSED_MEAT_CURING
+    description: Nitrite/nitrate curing agents indicate cured (processed) meat.
+    when: {type: ingredient_present, ids: [sodium_nitrite, nitrates]}
+    effect: {nova4_evidence: 0}
+    severity: 2
+    message: Contains curing salts typical of processed meat, which IARC classifies as carcinogenic to humans (Group 1).
+    source: IARC Monographs Volume 114 (2018)
+
+  - id: R_POLYOL_LAXATIVE
+    description: Polyol sweeteners carry an EU laxative-effect statement above 10%.
+    when: {type: ingredient_present, ids: [sorbitol, maltitol]}
+    effect: {nova4_evidence: 1}
+    severity: 1
+    message: Contains a polyol sweetener; in large amounts polyols are associated with a laxative effect.
+    source: Regulation (EU) No 1169/2011, Annex III
+
+  - id: R_INDUSTRIAL_SUBSTANCES
+    description: Substances NOVA names as typical of ultra-processed foods (rarely or never used in kitchens).
+    when: {type: ingredient_present, ids: [hydrolysed_protein, protein_isolate, mechanically_separated_meat, interesterified_fat,
+                                           polydextrose, fruit_juice_concentrate, maltodextrin, glucose_fructose_syrup, modified_starch]}
+    effect: {nova4_evidence: 1}
+    severity: 1
+    message: Contains an industrial food substance (e.g. syrups, isolates, modified starch) associated with ultra-processed foods.
+    source: Monteiro et al., Public Health Nutrition 2019 (NOVA)
+
+# Keywords for the always-rule-based allergen warning (never generated by an LLM).
+allergens:
+  milk: [milk, whey, casein, lactose, butter, cream, skimmed milk powder, milk powder]
+  egg: [egg, eggs, albumen, egg powder]
+  peanut: [peanut, peanuts, groundnut]
+  tree_nuts: [almond, hazelnut, walnut, cashew, pistachio, pecan, macadamia, brazil nut]
+  soy: [soy, soya, soybean, soy lecithin]
+  wheat_gluten: [wheat, gluten, barley, rye, oats, spelt, semolina]
+  sesame: [sesame, tahini]
+  fish: [fish, anchovy, cod, salmon, tuna]
+  shellfish: [shrimp, prawn, crab, lobster, crustacean, mollusc]
+  mustard: [mustard]
+  celery: [celery]
+  lupin: [lupin]
+  sulphites: [sulphite, sulfite, sulphur dioxide, sulfur dioxide, metabisulphite]
+
+# User preference filters used by the alternatives engine (ingredient ids or allergen groups to exclude).
+preferences:
+  no_palm_oil: {ingredient_ids: [palm_oil, hydrogenated_oil]}
+  no_artificial_sweeteners: {categories: [sweetener_artificial]}
+  no_artificial_colours: {categories: [colour]}
+  vegetarian: {keywords: [gelatin, gelatine, lard, tallow, beef, pork, chicken, fish, anchovy, rennet, carmine]}
+  vegan: {keywords: [gelatin, gelatine, lard, tallow, beef, pork, chicken, fish, anchovy, rennet, carmine, milk, whey, casein, egg, honey, butter, cream]}

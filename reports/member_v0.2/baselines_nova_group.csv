@@ -1,0 +1,11 @@
+model,accuracy,macro_f1,qwk,spearman
+majority,0.756,0.215,0.0,
+keyword_rule,0.224,0.107,0.029,0.099
+count_features_LR,0.756,0.215,0.0,-0.0
+tfidf_lr_cw=None,0.96,0.809,0.909,0.932
+tfidf_svm_cw=None,0.965,0.834,0.922,0.943
+tfidf_lr_cw=balanced,0.936,0.801,0.855,0.882
+tfidf_svm_cw=balanced,0.962,0.838,0.917,0.939
+rf_engineered,0.816,0.524,0.648,0.671
+rules_only,0.732,0.352,0.467,0.601
+hybrid(tfidf_lr+rules),0.937,0.802,0.855,0.882

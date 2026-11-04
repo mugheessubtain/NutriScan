@@ -1,0 +1,41 @@
+# Exact versions that work on the team machine are in requirements.lock.txt (pip freeze, Python 3.14).
+# pandas < 3 and scikit-learn 1.7.x are deliberate: on Windows with Smart App Control ON, the compiled files of
+# pandas 3.1 / scikit-learn 1.9 were blocked (no reputation yet) while these older builds load fine.
+
+# --- core ---
+numpy
+pandas>=2.2,<3
+pyarrow
+duckdb                # prepare_off.py reads the 8 GB OFF parquet without loading it into memory
+pyyaml
+rapidfuzz
+joblib
+
+# --- ML ---
+scikit-learn>=1.6,<1.8
+scipy
+imbalanced-learn      # random oversampling + SMOTE comparison (step6)
+shap                  # TreeExplainer for the engineered-feature models (linear SHAP is computed exactly in explain.py)
+
+# --- EDA / report ---
+matplotlib
+tabulate              # markdown tables in reports/eda_findings.md
+
+# --- OCR (RapidOCR is the default; it needs the Microsoft Visual C++ Redistributable x64 on Windows) ---
+opencv-python-headless
+rapidocr
+onnxruntime
+pillow
+# optional engines for training/eval_ocr.py:
+# pytesseract         # + the Tesseract binary (Windows: UB-Mannheim installer) on PATH
+# easyocr             # needs torch; unmaintained since v1.7.2
+
+# --- UI + optional chat (plan Section 14.1) ---
+streamlit
+anthropic             # optional: chat panel uses the Claude API when ANTHROPIC_API_KEY is set, else a template
+
+# --- dev / notebooks ---
+pytest
+nbformat
+nbclient
+ipykernel
