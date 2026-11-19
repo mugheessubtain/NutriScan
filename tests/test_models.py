@@ -68,3 +68,13 @@ def test_predictor_save_load_roundtrip(sample_df, tmp_path):
     q = NovaPredictor.load(path)
     assert q.kind == "tfidf_lr" and q.background_ is not None
     assert list(q.predict(["sugar, e102"])) == list(p.predict(["sugar, e102"]))
+
+
+def test_shap_works_inside_voting_ensemble(sample_df):
+    """Regression: ensemble members are fit on encoded labels (0..n-1), the app passes real labels (1..4 / 'poor')."""
+    from nutriscan.models import TierPredictor
+    for pred_cls, label in ((NovaPredictor, 4), (TierPredictor, "poor")):
+        p = pred_cls(kind="voting").train(sample_df.head(800))
+        drivers = linear_shap(p.model, "sugar, glucose syrup, palm oil, e471, flavouring", label, p.background_)
+        assert drivers and all(v > 0 for _, v in drivers)
+        assert not linear_shap_summary(p.model, sample_df["ingredients_norm"].head(30).tolist(), label, p.background_).empty

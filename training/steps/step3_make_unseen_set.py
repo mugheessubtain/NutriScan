@@ -24,6 +24,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime" / "src"))
 from nutriscan import config  # noqa: E402
+from nutriscan.cleaning_log import record  # noqa: E402
 from nutriscan.external import (  # noqa: E402
     add_code_canon,
     external_eval_sets,
@@ -51,8 +52,14 @@ def main() -> None:
     if not off_path.exists():
         sys.exit(f"OFF table not found: {off_path} (run step2 first)")
 
-    usda = normalize_usda(read_usda_branded(usda_path))
+    raw = read_usda_branded(usda_path)
+    usda = normalize_usda(raw)
     print(f"USDA distinct barcodes with ingredients: {len(usda):,}")
+    record("step3", "usda_versions", dataset="USDA FoodData Central",
+           issue="Several versions of one product (one fdc_id per release), missing ingredient statements",
+           fix="Keep the latest version that has ingredients, one row per canonical barcode",
+           why="Older versions are duplicates of the same product", before=len(raw), after=len(usda))
+    del raw
 
     off = add_code_canon(pd.read_parquet(off_path))
     sets = external_eval_sets(off, usda)
@@ -71,6 +78,15 @@ def main() -> None:
             print(f"matched rows with non-null {col}: {matched[col].notna().sum():,}")
 
     print(f"train_disjoint rows: {len(sets['train_disjoint']):,}")
+    record("step3", "usda_overlap_removed", dataset="Open Food Facts",
+           issue=f"Products also present in USDA ({overlap_pct:.0%} of USDA barcodes)",
+           fix="Remove those barcodes from the OFF training pool",
+           why="Otherwise the USDA test would contain products the model was trained on (leakage)",
+           before=len(off), after=len(sets["train_disjoint"]))
+    record("step3", "usda_matched", dataset="USDA FoodData Central", issue="USDA has no NOVA label",
+           fix="Give overlapping products the OFF label; they become the unseen test set",
+           why="A second, independently written dataset for testing", before=len(usda),
+           after=int(matched["nova_group"].notna().sum()) if "nova_group" in matched else len(matched), kind="kept")
     print(f"usda_unlabeled (gallery only): {len(sets['usda_unlabeled']):,}")
 
     config.USDA_PROCESSED.parent.mkdir(parents=True, exist_ok=True)

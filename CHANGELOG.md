@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.0: web app, real models, data-cleaning page
+- New web interface (`web/`, Next.js 16 + React 19): Scan, Data cleaning, Model performance and Method pages; three.js
+  hero whose colour follows the NOVA result; animated verdict card with SHAP bars. Python API in `runtime/api/server.py`
+  (FastAPI); `start.bat` starts both. The Streamlit UI is kept as a fallback.
+- Trained voting ensembles (254,169 products, tuned, USDA barcodes removed) run in the app; README and report use the
+  real tuned parameters.
+- Fixed: SHAP crashed for ensembles (members are fit on label-encoded targets); explanations now show readable words
+  only (no character n-grams, no bigrams that straddle two ingredients).
+- Data cleaning page: every cleaning step records its before/after counts in `reports/tables/cleaning_log.json`
+  (`nutriscan/cleaning_log.py`); `run_all.py --until` runs the cleaning steps alone.
+- Parser: function-word prefixes removed (`emulsifier: soy lecithin` -> `soy lecithin`, `colour e102` -> `e102`).
+- OCR: tries the photo as taken, straightened by the median text-line angle, and preprocessed, and keeps the cleanest
+  read; all 8 sample labels in `samples/` read with WER 0.
+- Optional Gemini suggestions of healthier products available in Pakistan (`nutriscan/llm_suggest.py`), labelled in
+  the UI and never used as a prediction.
+- Windows Smart App Control: pyarrow pinned below 23. Next.js upgraded to 16.4.5 (security advisories in 15.x).
+- 58 tests.
+
 ## 0.3.0: complete plan v2 (CT-361 CCA + CCP, CT-264 core)
 Built against "NutriScan Final Project Plan v2". Everything below is tested on the synthetic sample only; real
 numbers come from `python training/run_all.py` once `data/raw/` is filled.

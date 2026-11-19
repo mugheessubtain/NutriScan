@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #070b0a;
+  --color-card: #0e1513;
+  --color-raise: #131d1a;
+  --color-ink: #e9f1ec;
+  --color-muted: #94a39c;
+  --color-faint: #5c6b65;
+  --color-line: #1f2b27;
+  --color-accent: #3ddc97;
+  --color-accent-soft: #10291f;
+  --color-on-accent: #04130c;
+  --color-nova1: #3ddc97;
+  --color-nova2: #c7d94a;
+  --color-nova3: #f4a340;
+  --color-nova4: #ff5d5d;
+  --color-warn: #f4c26b;
+  --color-warn-soft: #231b0b;
+
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum" 1;
+}
+
+/* faint grid + two soft glows behind every page */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(900px 500px at 85% -10%, rgba(61, 220, 151, 0.12), transparent 60%),
+    radial-gradient(700px 500px at -10% 30%, rgba(72, 140, 255, 0.08), transparent 60%),
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px) 0 0 / 48px 48px,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px) 0 0 / 48px 48px,
+    var(--color-paper);
+}
+
+.glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 18px;
+}
+
+.glow-text {
+  background: linear-gradient(100deg, #e9f1ec 10%, #3ddc97 55%, #7cc4ff 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+::selection {
+  background: rgba(61, 220, 151, 0.3);
+}
+
+.label {
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  font-weight: 500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

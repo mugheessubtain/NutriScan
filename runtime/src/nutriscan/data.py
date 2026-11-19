@@ -23,15 +23,26 @@ def load_products(path=None, lang: str | None = None) -> pd.DataFrame:
     return clean_products(df)
 
 
-def clean_products(df: pd.DataFrame) -> pd.DataFrame:
-    """Rules from the plan: drop missing ingredients, drop missing NOVA, dedupe on barcode then ingredient string."""
+def clean_products(df: pd.DataFrame, log=None) -> pd.DataFrame:
+    """Rules from the plan: drop missing ingredients, drop missing NOVA, dedupe on barcode then ingredient string.
+
+    log: optional callable(rule_id, before, after) told the row count around each removal rule."""
+    log = log or (lambda *_: None)
     df = df.copy()
+    n = len(df)
     df = df[df["ingredients_text"].notna() & (df["ingredients_text"].str.strip() != "")]
+    log("empty_text", n, len(df))
     df["ingredients_norm"] = df["ingredients_text"].map(normalized_string)
+    n = len(df)
     df = df[df["ingredients_norm"] != ""]
+    log("unparseable_text", n, len(df))
     if "code" in df:
+        n = len(df)
         df = df.drop_duplicates("code")
+        log("duplicate_barcode", n, len(df))
+    n = len(df)
     df = df.drop_duplicates("ingredients_norm")
+    log("duplicate_ingredient_list", n, len(df))
     if "code" in df and "code_canon" not in df:
         from .external import canonical_barcode
         df["code_canon"] = df["code"].map(canonical_barcode)

@@ -20,6 +20,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime" / "src"))
 from nutriscan import config  # noqa: E402
+from nutriscan.cleaning_log import record  # noqa: E402
 from nutriscan.data import clean_products  # noqa: E402
 from nutriscan.usda import label_usda, mapping_table, read_usda_nutrients  # noqa: E402
 
@@ -43,8 +44,17 @@ def main() -> None:
     lab = clean_products(lab.drop(columns=["nutriscore_grade"], errors="ignore"))   # adds ingredients_norm, dedupes text
     print(f"after text cleaning: {len(lab):,}")
     print(f"mapped to an OFF food group: {lab['category'].notna().mean():.1%}")
+    record("step3b", "usda_category_mapping", dataset="USDA FoodData Central",
+           issue="Hundreds of USDA categories that do not match the 11 OFF food groups",
+           fix="Map them with ordered keyword rules (reports/tables/usda_category_mapping.csv)",
+           why="Both datasets must share one set of food-group labels", before=len(lab),
+           after=int(lab["category"].notna().sum()), kind="fixed")
     if "health_tier" in lab:
         print(f"with a nutrient-based tier: {lab['health_tier'].notna().mean():.1%}")
+        record("step3b", "usda_tier", dataset="USDA FoodData Central", issue="No Nutri-Score grade in USDA",
+               fix="Compute Nutri-Score 2017 from the USDA nutrients (energy, sugars, saturated fat, sodium, fibre, protein)",
+               why="Gives USDA products a health-tier label independent of OFF", before=len(lab),
+               after=int(lab["health_tier"].notna().sum()), kind="fixed")
         print(lab["health_tier"].value_counts().to_string())
 
     config.TABLES.mkdir(parents=True, exist_ok=True)

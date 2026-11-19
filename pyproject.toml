@@ -1,6 +1,6 @@
 [project]
 name = "nutriscan"
-version = "0.3.0"
+version = "0.4.0"
 description = "AI-powered ingredient label analyzer (CT-361 CCA + CCP)"
 requires-python = ">=3.11"
 

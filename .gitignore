@@ -14,3 +14,7 @@ _demo_out/
 # secrets
 .streamlit/secrets.toml
 .env
+
+# local only (personal notes; report sources contain roll numbers and the university logo)
+HOW_TO_RUN.txt
+docs/report_source/

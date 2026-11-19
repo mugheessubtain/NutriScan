@@ -19,6 +19,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime" / "src"))
 from nutriscan import config  # noqa: E402
+from nutriscan.cleaning_log import record  # noqa: E402
 
 MODELLING_COLUMNS = [
     "code", "product_name", "ingredients_text", "nova_group", "nutriscore_grade", "category",
@@ -53,8 +54,13 @@ def main() -> None:
     print(f"Read {rows_in:,} rows from {src}")
 
     if a.lang and "lang" in df.columns:
+        before = len(df)
         df = df[df["lang"] == a.lang]
         print(f"lang={a.lang!r}: kept {len(df):,} rows")
+        record("step1", "language", dataset="Open Food Facts", issue="Ingredient text in other languages",
+               fix=f"Keep only products whose main language is '{a.lang}'",
+               why="The parser, the knowledge base and the app work on English ingredient names",
+               before=before, after=len(df))
     elif a.lang:
         print(f"lang={a.lang!r} requested but there is no 'lang' column; skipped")
 
@@ -66,11 +72,17 @@ def main() -> None:
     before = len(df)
     df = df.drop_duplicates()
     print(f"Exact-row duplicates dropped: {before - len(df):,}")
+    record("step1", "exact_duplicates", dataset="Open Food Facts", issue="Exact duplicate rows",
+           fix="Drop rows that repeat every column", why="A product counted twice would weigh twice in training",
+           before=before, after=len(df))
 
     if "code" in df.columns:
         before = len(df)
         df = df.drop_duplicates("code")
         print(f"Duplicate barcodes dropped: {before - len(df):,}")
+        record("step1", "duplicate_barcodes", dataset="Open Food Facts", issue="Same barcode listed more than once",
+               fix="Keep the first row per barcode", why="One physical product must be one training example",
+               before=before, after=len(df))
 
     out = config.resolve(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)

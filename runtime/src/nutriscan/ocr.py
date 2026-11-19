@@ -71,14 +71,57 @@ def ocr_tesseract(image: np.ndarray) -> str:
     return pytesseract.image_to_string(image, config="--psm 6")
 
 
-def ocr_rapidocr(image: np.ndarray) -> str:
-    """RapidOCR: `pip install rapidocr onnxruntime`. No Paddle/torch and no system install needed."""
+def _rapidocr_run(image: np.ndarray) -> tuple[str, float]:
+    """(text, median text-line angle in degrees). Positive angle = lines slope down to the right."""
     engine, kind = _rapidocr_engine()
     if kind == "new":
         res = engine(image)
-        return " ".join(res.txts or [])
-    result, _ = engine(image)
-    return " ".join(line[1] for line in (result or []))
+        text, boxes = " ".join(res.txts or []), (np.asarray(res.boxes) if res.boxes is not None else np.empty((0, 4, 2)))
+    else:
+        result, _ = engine(image)
+        text = " ".join(line[1] for line in (result or []))
+        boxes = np.asarray([line[0] for line in (result or [])], dtype=float).reshape(-1, 4, 2)
+    angles = [np.degrees(np.arctan2(b[1, 1] - b[0, 1], b[1, 0] - b[0, 0])) for b in boxes
+              if b[1, 0] - b[0, 0] > 60]                      # long lines only: short words give noisy angles
+    return text, float(np.median(angles)) if angles else 0.0
+
+
+def ocr_rapidocr(image: np.ndarray) -> str:
+    """RapidOCR: `pip install rapidocr onnxruntime`. No Paddle/torch and no system install needed."""
+    return _rapidocr_run(image)[0]
+
+
+def _rotate(image: np.ndarray, angle: float) -> np.ndarray:
+    import cv2
+    h, w = image.shape[:2]
+    m = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1.0)
+    cos, sin = abs(m[0, 0]), abs(m[0, 1])
+    nw, nh = int(h * sin + w * cos), int(h * cos + w * sin)
+    m[0, 2] += nw / 2 - w / 2
+    m[1, 2] += nh / 2 - h / 2
+    return cv2.warpAffine(image, m, (nw, nh), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+
+
+def text_quality(text: str) -> float:
+    """Higher = cleaner OCR: real words count, 1-2 letter fragments ('ns', 'd') count against, an
+    'ingredients' heading is a bonus."""
+    import re
+    tokens = re.findall(r"[A-Za-z]+", text)
+    words = sum(1 for t in tokens if len(t) >= 3 and re.search(r"[aeiouyAEIOUY]", t))
+    junk = sum(1 for t in tokens if len(t) <= 2 and t.lower() not in {"of", "or", "in", "to", "a", "d", "e"})
+    return words - 2 * junk + (5 if re.search(r"ingredi", text, re.I) else 0)
+
+
+def _read_rapidocr(img: np.ndarray, do_preprocess: bool) -> str:
+    """Try the photo as taken, straightened when the text lines are tilted, and preprocessed; keep the cleanest.
+    (Preprocessing helps dark or noisy photos but can wash out text near glare, so it is one candidate, not a rule.)"""
+    text, angle = _rapidocr_run(img)
+    candidates = [text]
+    if 1.5 < abs(angle) < 30:
+        candidates.append(_rapidocr_run(_rotate(img, angle))[0])
+    if do_preprocess:
+        candidates.append(_rapidocr_run(preprocess(img))[0])
+    return max(candidates, key=text_quality)
 
 
 ENGINES = {"rapidocr": ocr_rapidocr, "tesseract": ocr_tesseract, "easyocr": ocr_easyocr}
@@ -91,5 +134,7 @@ def read_label(image_bytes: bytes, engine: str = DEFAULT_ENGINE, do_preprocess: 
     img = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
     if img is None:
         raise ValueError("Could not decode image")
+    if engine == "rapidocr":
+        return _read_rapidocr(img, do_preprocess)
     proc = preprocess(img, binarize=engine == "tesseract") if do_preprocess else img
     return ENGINES[engine](proc)

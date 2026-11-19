@@ -5,7 +5,7 @@
 # --- core ---
 numpy
 pandas>=2.2,<3
-pyarrow
+pyarrow>=21,<23          # pyarrow 23+ compiled files were blocked by Smart App Control; 22.0 loads
 duckdb                # prepare_off.py reads the 8 GB OFF parquet without loading it into memory
 pyyaml
 rapidfuzz
@@ -31,7 +31,11 @@ pillow
 # easyocr             # needs torch; unmaintained since v1.7.2
 
 # --- UI + optional chat (plan Section 14.1) ---
-streamlit
+fastapi               # runtime/api/server.py, used by the Next.js website in web/
+uvicorn
+python-multipart      # photo uploads to /api/ocr
+streamlit             # older single-file UI, kept as a fallback
+google-genai          # optional: Pakistani-market suggestions from Gemini (GEMINI_API_KEY in .env)
 anthropic             # optional: chat panel uses the Claude API when ANTHROPIC_API_KEY is set, else a template
 
 # --- dev / notebooks ---

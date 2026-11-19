@@ -117,10 +117,22 @@ def split_top_level(text: str) -> list[str]:
     return [p.strip(" .:-") for p in parts if p.strip(" .:-")]
 
 
+_FUNCTION_PREFIX = re.compile(
+    r"^(" + "|".join(sorted(map(re.escape, FUNCTION_WORDS), key=len, reverse=True)) + r")"
+    r"(?:\s*:\s*(?P<named>.+)|\s+(?P<enum>e\d{3,4}[a-z]?))$"
+)
+
+
+def _strip_function_word(name: str) -> str:
+    """'emulsifier: soy lecithin' -> 'soy lecithin', 'colour e102' -> 'e102' (the function word adds no ingredient)."""
+    m = _FUNCTION_PREFIX.match(name)
+    return (m.group("named") or m.group("enum")).strip(" .:-") if m else name
+
+
 def _expand(item: str, position: int, depth: int, parent: str | None, out: list[Ingredient]) -> None:
     m = re.match(r"^(.*?)\((.*)\)\s*(.*)$", item)
     if not m:
-        name = item.strip(" .:-")
+        name = _strip_function_word(item.strip(" .:-"))
         if name:
             out.append(Ingredient(name, position, depth, parent))
         return

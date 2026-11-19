@@ -19,7 +19,8 @@ TRAIN_META = config.ARTIFACTS / "train_meta.json"
 
 class NutriScan:
     def __init__(self, nova_pred: NovaPredictor, tier_pred: TierPredictor, category_pred: CategoryPredictor,
-                 gallery: pd.DataFrame, data_source: str = "unknown"):
+                 gallery: pd.DataFrame, data_source: str = "unknown", gallery_synthetic: bool = False):
+        self.gallery_synthetic = gallery_synthetic      # True when the gallery is the synthetic sample (UI hides it)
         self.nova_pred = nova_pred
         self.tier_pred = tier_pred
         self.category_pred = category_pred
@@ -52,13 +53,15 @@ class NutriScan:
             meta = json.loads(TRAIN_META.read_text(encoding="utf-8")) if TRAIN_META.exists() else {}
             source = ("synthetic sample" if meta.get("synthetic", "sample" in str(meta.get("data_path", "")))
                       else ("off" if meta else "unknown"))
+            synthetic_gallery = not config.GALLERY.exists()
             if config.GALLERY.exists():
                 gallery = pd.read_parquet(config.GALLERY)
             elif config.SAMPLE_CSV.exists():
                 gallery = build_gallery(load_products(config.SAMPLE_CSV))
             else:
                 gallery = pd.DataFrame()
-            return cls(NovaPredictor.load(), TierPredictor.load(), CategoryPredictor.load(), gallery, source)
+            return cls(NovaPredictor.load(), TierPredictor.load(), CategoryPredictor.load(), gallery, source,
+                       gallery_synthetic=synthetic_gallery)
         return cls.train(data_source="sample (in-memory demo, no artifacts found)")
 
     # ---------- inference ----------
@@ -77,8 +80,13 @@ class NutriScan:
 
         result = self.es.analyze(ings)
         nova_final, hybrid_reasons = self.es.hybrid_nova(nova_pred, result)
-        drivers = linear_shap(self.nova_pred.model, norm, nova_pred, self.nova_pred.background_)
-        tier_drivers = linear_shap(self.tier_pred.model, norm, tier_pred, self.tier_pred.background_)
+        names = [i.name for i in ings]
+        # word bigrams can straddle two ingredients ("flour palm"); only show terms that occur inside one ingredient
+        readable = lambda terms: [(t, v) for t, v in terms if any(t in n for n in names)][:8]
+        drivers = readable(linear_shap(self.nova_pred.model, norm, nova_pred, self.nova_pred.background_, k=20,
+                                       words_only=True))
+        tier_drivers = readable(linear_shap(self.tier_pred.model, norm, tier_pred, self.tier_pred.background_, k=20,
+                                            words_only=True))
         alts = self.alt.recommend(norm, cat_pred, nova_final, tier_pred, prefs, k=k_alt) if self.alt else []
 
         return {

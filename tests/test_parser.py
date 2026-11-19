@@ -47,3 +47,35 @@ def test_usda_style_strings():
     assert "salt" in names and "natural flavor" in names and "pork" in names
     assert not any("*" in n or "contains" in n or "nitrates" in n for n in names)
     assert ingredient_names("SUGAR, 2% OR LESS OF: SALT") == ["sugar", "salt"]
+
+
+def test_ocr_quality_score_prefers_clean_text():
+    from nutriscan.ocr import text_quality
+    clean = "INGREDIENTS: Tomato paste, water, sugar, vinegar, salt"
+    garbled = "LAAL Tomato Ketchup maies e ce e doen s es"
+    assert text_quality(clean) > text_quality(garbled)
+
+
+def test_ocr_reads_sample_labels():
+    import pytest
+    from pathlib import Path
+    from nutriscan import config
+    try:
+        from nutriscan.ocr import _rapidocr_engine, read_label
+        _rapidocr_engine()
+    except Exception:
+        pytest.skip("RapidOCR / onnxruntime not available on this machine")
+    from nutriscan.evaluation import ingredient_extraction_accuracy
+    from nutriscan.parser import extract_ingredient_section, ingredient_names
+    for name in ("03_cola_angled", "05_ketchup_glare"):     # the two that needed straightening / no preprocessing
+        img = config.PROJECT_ROOT / "samples" / f"{name}.jpg"
+        ref = img.with_suffix(".txt").read_text(encoding="utf-8")
+        hyp = extract_ingredient_section(read_label(img.read_bytes()))
+        assert ingredient_extraction_accuracy(ingredient_names(ref), ingredient_names(hyp)) >= 0.9
+
+
+def test_function_word_prefixes_are_dropped():
+    from nutriscan.parser import ingredient_names
+    assert ingredient_names("sugar, emulsifier: soy lecithin, colour E 102") == ["sugar", "soy lecithin", "e102"]
+    assert ingredient_names("acidity regulator e330, salt") == ["e330", "salt"]
+    assert ingredient_names("sweetener syrup") == ["sweetener syrup"]      # not a function-word + name pattern

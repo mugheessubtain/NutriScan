@@ -19,6 +19,12 @@ def _clean(name: str) -> str:
     return name.replace("word__", "").replace("char__", "chars:")
 
 
+def _member_label(model, pipe, class_label):
+    """Voting/stacking ensembles fit their members on label-ENCODED targets (0..n-1); translate the label for them."""
+    enc = getattr(model, "le_", None) or getattr(model, "_label_encoder", None)
+    return enc.transform([class_label])[0] if enc is not None and pipe is not model else class_label
+
+
 def _coef_row(clf, class_label) -> np.ndarray:
     classes = list(clf.classes_)
     if len(classes) == 2:                     # binary: one coef row for classes_[1]
@@ -26,9 +32,11 @@ def _coef_row(clf, class_label) -> np.ndarray:
     return clf.coef_[classes.index(class_label)]
 
 
-def linear_shap(model, text: str, class_label, background: np.ndarray | None = None, k: int = 8) -> list[tuple[str, float]]:
+def linear_shap(model, text: str, class_label, background: np.ndarray | None = None, k: int = 8,
+                words_only: bool = False) -> list[tuple[str, float]]:
     """Top-k features pushing `text` TOWARD `class_label` (largest positive SHAP values).
 
+    words_only drops character n-gram features ("chars: e1"): still part of the model, but meaningless to a reader.
     Without a background (older artifacts) this falls back to coef * x, the contribution relative to an empty list.
     """
     pipe = linear_member(model)
@@ -37,9 +45,11 @@ def linear_shap(model, text: str, class_label, background: np.ndarray | None = N
     tfidf, clf = pipe.named_steps["tfidf"], pipe.named_steps["clf"]
     x = np.asarray(tfidf.transform([text]).todense()).ravel()
     base = background if background is not None and len(background) == len(x) else 0.0
-    phi = _coef_row(clf, class_label) * (x - base)
+    phi = _coef_row(clf, _member_label(model, pipe, class_label)) * (x - base)
     phi = np.where(x > 0, phi, 0.0)           # report features present in this product; absent ones are background terms
     names = tfidf.get_feature_names_out()
+    if words_only:
+        phi = np.where(np.char.startswith(names.astype(str), "char__"), 0.0, phi)
     idx = np.argsort(-phi)[:k]
     return [(_clean(names[i]), float(phi[i])) for i in idx if phi[i] > 0]
 
@@ -57,7 +67,7 @@ def linear_shap_summary(model, texts: list[str], class_label, background: np.nda
     if pipe is None:
         return pd.DataFrame(columns=["feature", "mean_abs_shap", "toward_class"])
     tfidf, clf = pipe.named_steps["tfidf"], pipe.named_steps["clf"]
-    coef = _coef_row(clf, class_label)
+    coef = _coef_row(clf, _member_label(model, pipe, class_label))
     X = tfidf.transform(list(texts))
     base = background if background is not None else np.asarray(X.mean(axis=0)).ravel()
     abs_sum = np.zeros_like(coef)

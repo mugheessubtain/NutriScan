@@ -21,6 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "runtime" / "src"))
 from nutriscan import config  # noqa: E402
+from nutriscan.cleaning_log import record  # noqa: E402
 from nutriscan.external import canonical_barcode  # noqa: E402
 
 HF_SRC = "hf://datasets/openfoodfacts/product-database/food.parquet"
@@ -109,6 +110,19 @@ def main():
     con.execute("SET lambda_syntax='ENABLE_SINGLE_ARROW'")
     df = con.execute(build_query(a.src, types, a.lang or None, a.limit, a.with_nutriments)).df()
     df["code_canon"] = df["code"].map(canonical_barcode)
+    total = con.execute(f"SELECT count(*) FROM read_parquet('{a.src}')").fetchone()[0]
+    record("prepare", "export_filter", dataset="Open Food Facts",
+           issue="Full export: 8 GB, 111 columns, all languages, many products without ingredients",
+           fix=f"Read only the needed columns and products with a non-empty {a.lang or 'any'}-language ingredient list (DuckDB)",
+           why="The full table does not fit in memory and most rows cannot be used", before=total, after=len(df))
+    if "nutriscore_grade" in types:
+        junk = con.execute(
+            f"SELECT count(*) FROM read_parquet('{a.src}') WHERE lower(CAST(nutriscore_grade AS VARCHAR)) "
+            "IN ('unknown', 'not-applicable')").fetchone()[0]
+        record("prepare", "nutriscore_junk", dataset="Open Food Facts",
+               issue="Nutri-Score values 'unknown' and 'not-applicable'", fix="Set to missing",
+               why="They are not grades and would become a fake fourth tier", before=junk, after=0,
+               unit="values", kind="fixed")
     out = config.OFF_PROCESSED
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(out, index=False)

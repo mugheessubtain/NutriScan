@@ -1,0 +1,51 @@
+{
+  "data_path": "data\\processed\\off_train_disjoint.parquet",
+  "overlap_safe": true,
+  "rows": 254169,
+  "trained_at": "2026-11-04T23:06:05.622770+00:00",
+  "models": {
+    "nova": {
+      "target": "nova_group",
+      "rows": 199525,
+      "classes": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "kind": "voting"
+    },
+    "tier": {
+      "target": "health_tier",
+      "rows": 205891,
+      "classes": [
+        "good",
+        "medium",
+        "poor"
+      ],
+      "kind": "voting"
+    },
+    "category": {
+      "target": "category",
+      "rows": 222319,
+      "classes": [
+        "alcoholic-beverages",
+        "baby-foods-and-milks",
+        "beverages",
+        "cereals-and-potatoes",
+        "composite-foods",
+        "fats-and-sauces",
+        "fish-meat-eggs",
+        "fruits-and-vegetables",
+        "milk-and-dairy-products",
+        "salty-snacks",
+        "sugary-snacks"
+      ],
+      "kind": "voting"
+    }
+  },
+  "model": "voting",
+  "tuned": true,
+  "add_usda": true,
+  "synthetic": false
+}

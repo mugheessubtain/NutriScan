@@ -21,6 +21,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime" / "src"))
 from nutriscan import config  # noqa: E402
+from nutriscan.cleaning_log import record  # noqa: E402
 from nutriscan.data import clean_products  # noqa: E402
 from nutriscan.parser import E_NUMBER, parse_ingredients  # noqa: E402
 
@@ -56,12 +57,31 @@ def main() -> None:
     rows_in = len(df)
     print(f"Read {rows_in:,} rows from {src}")
 
-    df = clean_products(df)
+    rules = {
+        "empty_text": ("Missing or empty ingredient list", "Drop the product",
+                       "Without ingredients there is nothing to classify"),
+        "unparseable_text": ("Ingredient text with no usable ingredient after cleaning", "Drop the product",
+                             "Text such as '-', '...' or only a percentage carries no information"),
+        "duplicate_barcode": ("Same barcode after loading", "Keep one row per barcode",
+                              "Avoids counting a product twice"),
+        "duplicate_ingredient_list": ("Different products with an identical ingredient list (after normalising)",
+                                      "Keep one row per normalised list",
+                                      "Identical inputs in train and test would inflate the scores"),
+    }
+
+    def log(rule_id, before, after):
+        issue, fix, why = rules[rule_id]
+        record("step2", rule_id, dataset="Open Food Facts", issue=issue, fix=fix, why=why, before=before, after=after)
+
+    df = clean_products(df, log=log)
     print(f"After clean_products (missing/empty text + dedupe): {len(df):,} rows")
 
     before = len(df)
     df = df[df["ingredients_text"].str.len() >= a.min_chars]
     print(f"Dropped < {a.min_chars} chars: {before - len(df):,}")
+    record("step2", "too_short", dataset="Open Food Facts", issue=f"Ingredient text shorter than {a.min_chars} characters",
+           fix="Drop the product", why="Fragments like 'salt' typed into the wrong field or OCR debris",
+           before=before, after=len(df))
 
     df = df.copy()
     df["n_ingredients"] = df["ingredients_text"].map(top_level_count)
@@ -70,6 +90,15 @@ def main() -> None:
     before = len(df)
     df = df[df["n_ingredients"] > 0]
     print(f"Dropped zero parsed top-level ingredients: {before - len(df):,}")
+    record("step2", "no_ingredients_parsed", dataset="Open Food Facts", issue="No ingredient left after parsing",
+           fix="Drop the product", why="Nothing for the models to read", before=before, after=len(df))
+    for col, label in (("nova_group", "NOVA group"), ("health_tier", "Nutri-Score tier"), ("category", "food group")):
+        if col in df.columns:
+            missing = int((df[col].isna() | (df[col] == "unknown")).sum())
+            record("step2", f"missing_{col}", dataset="Open Food Facts", issue=f"Missing {label} label",
+                   fix="Keep the product; leave it out only of the model that needs this label",
+                   why="The product is still useful for the other two targets", before=missing, after=missing,
+                   unit="labels", kind="kept")
 
     print("\nnova_group:")
     print(df["nova_group"].value_counts(dropna=False).sort_index().to_string())
